@@ -20,7 +20,10 @@ fn obj_constructor(
     let ir = i.to_integer(scope).unwrap();
     let ir = ir.int32_value(scope).expect("couldn't get rust i32");
 
-    let mut rust_obj = RustThing { val: -ir, ..Default::default()};
+    let mut rust_obj = RustThing {
+        val: -ir,
+        ..Default::default()
+    };
     rust_obj.big[1] = 1;
     let b = Box::new(rust_obj);
 
