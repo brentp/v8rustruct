@@ -5,7 +5,7 @@ use v8;
 #[derive(Default)]
 pub struct RustThing {
     pub val: i32,
-    big: i128,
+    big: [i128; 30],
 }
 
 fn obj_constructor(
@@ -20,7 +20,8 @@ fn obj_constructor(
     let ir = i.to_integer(scope).unwrap();
     let ir = ir.int32_value(scope).expect("couldn't get rust i32");
 
-    let rust_obj = RustThing { val: -ir, big: 1 };
+    let mut rust_obj = RustThing { val: -ir, ..Default::default()};
+    rust_obj.big[1] = 1;
     let b = Box::new(rust_obj);
 
     // HELP: this is the source of the leak, but how to get v8.rs to clean up below?
@@ -30,10 +31,10 @@ fn obj_constructor(
     // HELP: This is never run. And what to put in there?
     // related to this: https://github.com/denoland/rusty_v8/blob/dd5fa705d430531ce4dd77605cec4adf2ed5ce80/tests/test_api.rs#L7399 ?
     // Must this be kept or sent out on a channel?
-    Rc::new(v8::Weak::with_guaranteed_finalizer(
+    Rc::new(v8::Weak::with_finalizer(
         scope,
-        &this,
-        Box::new(move || panic!("HELP: how to make it so this called?")),
+        this,
+        Box::new(move |_isolate| panic!("HELP: how to make it so this called?")),
     ));
     rv.set(this.into())
 }
@@ -51,7 +52,7 @@ fn thing_val(
     let fld = this.get_internal_field(scope, 0).unwrap();
     let ext = unsafe { v8::Local::<v8::External>::cast(fld) };
     let rust_thing: &RustThing = unsafe { &*(ext.value() as *mut RustThing) };
-    assert!(rust_thing.big == 1);
+    assert!(rust_thing.big[1] == 1);
 
     rv.set_int32(rust_thing.val);
 }
@@ -87,8 +88,8 @@ fn main() {
 
     let js = r"
 var j
-for (i = 0; i < 4000; i++){
-    for (k = 0; k < 1000; k++) {
+for (i = 0; i < 400; i++){
+    for (k = 0; k < 2000; k++) {
         j = new Thing(i);
     }
     gc();
